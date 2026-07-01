@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>머지 피쉬 에볼루션 (Merge Fish Evolution)</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #e0f7fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #game-container {
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            text-align: center;
+            width: 500px;
+        }
+        #status-bar {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #0077c2;
+            background: #e1f5fe;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        #tank {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            background-color: #b3e5fc;
+            padding: 15px;
+            border-radius: 10px;
+            min-height: 250px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        .fish-slot {
+            background-color: #e1f5fe;
+            border: 2px dashed #0288d1;
+            border-radius: 10px;
+            height: 75px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+        }
+        .fish-slot .emoji {
+            font-size: 24px;
+            margin-bottom: 2px;
+        }
+        .fish-slot:hover {
+            background-color: #b3e5fc;
+        }
+        .fish-active {
+            background-color: #4fc3f7 !important;
+            border-style: solid;
+            color: white;
+        }
+        /* 고레벨 물고기들에게 특별한 색상 부여 */
+        .rare-fish { background-color: #ba68c8 !important; border-color: #7b1fa2; }
+        .legend-fish { background-color: #ffb74d !important; border-color: #f57c00; }
+        .god-fish { background-color: #ef5350 !important; border-color: #b71c1c; animation: pulse 1.5s infinite; }
+        
+        .fish-selected {
+            border: 3px solid #ffeb3b !important;
+            transform: scale(1.05);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            font-size: 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            flex: 1;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .buy-btn { background-color: #00bcd4; }
+        .buy-btn:hover { background-color: #0097a7; }
+        .expand-btn { background-color: #4caf50; }
+        .expand-btn:hover { background-color: #388e3c; }
+        
+        #log {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #444;
+            background-color: #f5f5f5;
+            padding: 8px;
+            border-radius: 5px;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h2>🐠 머지 피쉬 에볼루션 v2.0</h2>
+    <div id="status-bar">골드: <span id="gold-display">100</span>G</div>
+    
+    <div id="tank"></div>
+    
+    <div class="btn-group">
+        <button class="buy-btn" onclick="buyFish()">🛒 물고기 사기 (10G)</button>
+        <button class="expand-btn" id="expand-button" onclick="expandTank()">🧱 수족관 확장 (150G)</button>
+    </div>
+    
+    <div id="log">물고기를 전설 등급을 넘어 신화 등급까지 진화시켜 보세요!</div>
+</div>
+
+<script>
+    let gold = 100;
+    let tankData = [1, 1, 0, 0, 0, 0, 0, 0, 0]; 
+    let selectedIndex = null;
+    let expandCost = 150; 
+    const maxSlots = 24;  // 이제 최대 24칸까지 확장 가능
+
+    const goldDisplay = document.getElementById('gold-display');
+    const tankElement = document.getElementById('tank');
+    const logElement = document.getElementById('log');
+    const expandButton = document.getElementById('expand-button');
+
+    // 🌟 총 12종류로 대폭 늘어난 물고기 도감!
+    const fishDex = {
+        1: { name: "고등어", emoji: "🐟", class: "normal" },
+        2: { name: "열대어", emoji: "🐠", class: "normal" },
+        3: { name: "복어", emoji: "🐡", class: "normal" },
+        4: { name: "오징어", emoji: "🦑", class: "normal" },
+        5: { name: "문어", emoji: "🐙", class: "normal" },
+        6: { name: "새우", emoji: "🦐", class: "normal" },
+        7: { name: "가재", emoji: "🦞", class: "rare" },
+        8: { name: "해파리", emoji: "🪼", class: "rare" },
+        9: { name: "상어", emoji: "🦈", class: "legend" },
+        10: { name: "고래", emoji: "🐳", class: "legend" },
+        11: { name: "해룡", emoji: "🐲", class: "god" },
+        12: { name: "레비아탄", emoji: "🔱", class: "god" }
+    };
+
+    function renderTank() {
+        tankElement.innerHTML = '';
+        
+        // 칸 수에 따라 그리드 열(Column) 개수 최적화 (3열 -> 4열 -> 5열 -> 6열)
+        if (tankData.length <= 9) {
+            tankElement.style.gridTemplateColumns = "repeat(3, 1fr)";
+        } else if (tankData.length <= 16) {
+            tankElement.style.gridTemplateColumns = "repeat(4, 1fr)";
+        } else {
+            tankElement.style.gridTemplateColumns = "repeat(5, 1fr)";
+        }
+
+        tankData.forEach((fishLevel, index) => {
+            const slot = document.createElement('div');
+            slot.classList.add('fish-slot');
+            
+            if (fishLevel > 0) {
+                const fish = fishDex[fishLevel] || { name: "미지의 생물", emoji: "❓", class: "normal" };
+                slot.classList.add('fish-active');
+                slot.classList.add(fish.class); // 등급별 색상 클래스 추가
+                
+                slot.innerHTML = `<span class="emoji">${fish.emoji}</span><span>${fish.name} (Lv.${fishLevel})</span>`;
+                
+                if (selectedIndex === index) {
+                    slot.classList.add('fish-selected');
+                }
+            } else {
+                slot.innerHTML = "<span>빈칸</span>";
+            }
+
+            slot.onclick = () => handleSlotClick(index);
+            tankElement.appendChild(slot);
+        });
+        
+        goldDisplay.innerText = Math.floor(gold);
+        
+        if (tankData.length >= maxSlots) {
+            expandButton.innerText = "🧱 확장 완료 (MAX)";
+            expandButton.style.backgroundColor = "#9e9e9e";
+            expandButton.disabled = true;
+        } else {
+            expandButton.innerText = `🧱 수족관 확장 (${expandCost}G)`;
+        }
+    }
+
+    function handleSlotClick(index) {
+        if (selectedIndex === null) {
+            if (tankData[index] > 0) {
+                selectedIndex = index;
+                const fish = fishDex[tankData[index]];
+                logElement.innerText = `['${fish.name}'] 선택 중... 어디에 합칠까요?`;
+            }
+        } else {
+            if (selectedIndex === index) {
+                selectedIndex = null;
+                logElement.innerText = "선택을 취소했습니다.";
+            } else if (tankData[index] === tankData[selectedIndex] && tankData[index] > 0) {
+                const currentLevel = tankData[index];
+                if (currentLevel >= 12) {
+                    logElement.innerText = "❌ 최고 등급인 레비아탄은 더 이상 진화할 수 없습니다!";
+                    selectedIndex = null;
+                    renderTank();
+                    return;
+                }
+                
+                tankData[index] += 1;
+                tankData[selectedIndex] = 0;
+                selectedIndex = null;
+                
+                const nextFish = fishDex[tankData[index]];
+                logElement.innerText = `🧬 진화 대성공!! 새로운 생물 ['${nextFish.name}'] 등장!`;
+            } else {
+                if (tankData[index] > 0) {
+                    selectedIndex = index;
+                    const fish = fishDex[tankData[index]];
+                    logElement.innerText = `대상을 변경했습니다: ['${fish.name}']`;
+                } else {
+                    selectedIndex = null;
+                    logElement.innerText = "같은 종류의 물고기끼리만 합칠 수 있습니다.";
+                }
+            }
+        }
+        renderTank();
+    }
+
+    function buyFish() {
+        if (gold >= 10) {
+            const emptyIndex = tankData.indexOf(0);
+            if (emptyIndex !== -1) {
+                gold -= 10;
+                tankData[emptyIndex] = 1;
+                logElement.innerText = "🛒 가장 찌끄만 '멸치' 한 마리를 구매했습니다.";
+                renderTank();
+            } else {
+                logElement.innerText = "❌ 수족관 자리가 없어요! 합성을 하거나 칸을 늘리세요.";
+            }
+        } else {
+            logElement.innerText = "❌ 골드가 부족합니다!";
+        }
+    }
+
+    function expandTank() {
+        if (tankData.length >= maxSlots) return;
+
+        if (gold >= expandCost) {
+            gold -= expandCost;
+            tankData.push(0); 
+            logElement.innerText = `🧱 수족관을 늘렸습니다! (현재 ${tankData.length}칸 / 최대 24칸)`;
+            expandCost = Math.floor(expandCost * 2.2); 
+            renderTank();
+        } else {
+            logElement.innerText = "❌ 골드가 부족해서 땅을 넓힐 수 없습니다!";
+        }
+    }
+
+    // 💰 초당 자동 골드 생산 (밸런스 조정)
+    setInterval(() => {
+        let earned = 0;
+        tankData.forEach(fishLevel => {
+            if (fishLevel > 0) {
+                // 고레벨로 갈수록 수익이 미친듯이 뜁니다 (3의 제곱수 형태 적용)
+                earned += Math.pow(3, fishLevel - 1); 
+            }
+        });
+        if (earned > 0) {
+            gold += earned;
+            goldDisplay.innerText = Math.floor(gold);
+        }
+    }, 1000);
+
+    renderTank();
+</script>
+
+</body>
+</html>
