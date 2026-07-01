@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>엔트리 스프런키 모드 허브 (Sprunki Mode Hub)</title>
+    <style>
+        :root {
+            --primary-color: #6c5ce7;
+            --secondary-color: #a29bfe;
+            --bg-color: #1e1e24;
+            --card-bg: #2d2d35;
+            --text-color: #ffffff;
+            --entry-color: #00ccaa; /* 엔트리 시그니처 색상 느낌 */
+        }
+
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #0f0f12;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: var(--entry-color);
+        }
+
+        header p {
+            margin: 5px 0 0 0;
+            color: #aaa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            gap: 30px;
+        }
+
+        /* 업로드 폼 스타일 */
+        .upload-section {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            height: fit-content;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .upload-section h2 {
+            margin-top: 0;
+            font-size: 20px;
+            color: var(--secondary-color);
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #ccc;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            background-color: #1e1e24;
+            color: #fff;
+            box-sizing: border-box;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            height: 80px;
+        }
+
+        .upload-btn {
+            width: 100%;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .upload-btn:hover {
+            background-color: #5b4bc4;
+        }
+
+        /* 게시글 리스트 스타일 */
+        .list-section h2 {
+            margin-top: 0;
+            font-size: 22px;
+            color: var(--entry-color);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .mod-card {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mod-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .mod-thumbnail {
+            width: 100%;
+            height: 160px;
+            background-color: #151518;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            position: relative;
+        }
+
+        .mod-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: var(--entry-color);
+            color: #000;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 20px;
+        }
+
+        .mod-info {
+            padding: 15px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mod-title {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .mod-creator {
+            font-size: 13px;
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+
+        .mod-desc {
+            font-size: 13px;
+            color: #aaa;
+            margin-bottom: 15px;
+            line-height: 1.4;
+            flex-grow: 1;
+        }
+
+        .play-link {
+            display: block;
+            text-align: center;
+            background-color: #00ccaa;
+            color: #000;
+            text-decoration: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .play-link:hover {
+            background-color: #00b395;
+        }
+
+        .no-mods {
+            text-align: center;
+            color: #666;
+            grid-column: 1 / -1;
+            padding: 40px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>⚡ 엔트리 스프런키 모드 허브</h1>
+    <p>스프런키 팬메이드 엔트리 작품들을 공유하고 플레이하는 공간</p>
+</header>
+
+<div class="container">
+    <!-- 왼쪽: 모드 올리기 폼 -->
+    <div class="upload-section">
+        <h2>📤 내 모드 등록하기</h2>
+        <div class="form-group">
+            <label for="modTitle">모드 이름</label>
+            <input type="text" id="modTitle" placeholder="예: 스프런키 호러 에디션 v2">
+        </div>
+        <div class="form-group">
+            <label for="modCreator">제작자 닉네임</label>
+            <input type="text" id="modCreator" placeholder="엔트리 닉네임">
+        </div>
+        <div class="form-group">
+            <label for="entryUrl">엔트리 작품 링크 (URL)</label>
+            <input type="text" id="entryUrl" placeholder="https://playentry.org/project/...">
+        </div>
+        <div class="form-group">
+            <label for="modDesc">모드 설명</label>
+            <textarea id="modDesc" placeholder="모드 콘셉트나 단축키, 플레이 방법 등을 적어주세요."></textarea>
+        </div>
+        <button class="upload-btn" onclick="addMod()">게시하기</button>
+    </div>
+
+    <!-- 오른쪽: 등록된 모드 리스트 -->
+    <div class="list-section">
+        <h2>🔥 최신 등록된 모드 목록</h2>
+        <div class="grid" id="modGrid">
+            <!-- 자바스크립트로 카드가 생성되는 공간 -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // 샘플 데이터 (초기 노출용 모드들)
+    let sprunkiMods = [
+        {
+            title: "스프런키 네온 리믹스",
+            creator: "엔트리마스터",
+            url: "https://playentry.org",
+            desc: "화려한 사이버펑크 스타일의 이펙트와 강력한 비트가 추가된 스프런키 엔트리 작입니다!",
+            emoji: "🎵"
+        },
+        {
+            title: "Sprunki: 더 다크니스 (Darkness)",
+            creator: "크리퍼조아",
+            url: "https://playentry.org",
+            desc: "완전히 기괴하고 어두워진 캐릭터 디자인과 숨겨진 히든 보너스 트랙을 만나보세요.",
+            emoji: "💀"
+        }
+    ];
+
+    // 브라우저 로컬스토리지에 저장된 데이터가 있다면 불러오기
+    if (localStorage.getItem('sprunki_mods')) {
+        sprunkiMods = JSON.parse(localStorage.getItem('sprunki_mods'));
+    }
+
+    const modGrid = document.getElementById('modGrid');
+
+    // 모드 리스트 화면에 그리기
+    function displayMods() {
+        modGrid.innerHTML = '';
+
+        if (sprunkiMods.length === 0) {
+            modGrid.innerHTML = '<div class="no-mods">아직 등록된 모드가 없습니다. 첫 모드를 등록해 보세요!</div>';
+            return;
+        }
+
+        // 최신글이 위로 오도록 역순 배치
+        [...sprunkiMods].reverse().forEach(mod => {
+            const card = document.createElement('div');
+            card.classList.add('mod-card');
+
+            card.innerHTML = `
+                <div class="mod-thumbnail">
+                    <span class="mod-badge">ENTRY</span>
+                    ${mod.emoji || "🎼"}
+                </div>
+                <div class="mod-info">
+                    <h3 class="mod-title">${escapeHtml(mod.title)}</h3>
+                    <div class="mod-creator">By. ${escapeHtml(mod.creator)}</div>
+                    <div class="mod-desc">${escapeHtml(mod.desc)}</div>
+                    <a href="${escapeHtml(mod.url)}" target="_blank" class="play-link">🕹️ 플레이하러 가기</a>
+                </div>
+            `;
+            modGrid.appendChild(card);
+        });
+    }
+
+    // 모드 등록하기 기능
+    function addMod() {
+        const title = document.getElementById('modTitle').value.trim();
+        const creator = document.getElementById('modCreator').value.trim();
+        const url = document.getElementById('entryUrl').value.trim();
+        const desc = document.getElementById('modDesc').value.trim();
+
+        // 입력값 검증
+        if (!title || !creator || !url || !desc) {
+            alert("⚠️ 모든 빈칸을 채워주세요!");
+            return;
+        }
+
+        if (!url.includes("playentry.org")) {
+            alert("⚠️ 올바른 엔트리(playentry.org) 작품 주소를 입력해 주세요!");
+            return;
+        }
+
+        // 랜덤 이모지 부여 (썸네일 대용)
+        const emojis = ["🎸", "🎹", "🥁", "🎤", "🎧", "👾", "🔥", "🌈", "🎭"];
+        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+        // 데이터 추가
+        const newMod = { title, creator, url, desc, emoji: randomEmoji };
+        sprunkiMods.push(newMod);
+
+        // 로컬스토리지 저장 (새로고침해도 데이터 유지)
+        localStorage.setItem('sprunki_mods', JSON.stringify(sprunkiMods));
+
+        // 입력창 초기화
+        document.getElementById('modTitle').value = '';
+        document.getElementById('modCreator').value = '';
+        document.getElementById('entryUrl').value = '';
+        document.getElementById('modDesc').value = '';
+
+        alert("🎉 모드가 성공적으로 등록되었습니다!");
+        displayMods();
+    }
+
+    // 보안을 위한 HTML 특수문자 치환 함수
+    function escapeHtml(text) {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    // 첫 실행시 로드
+    displayMods();
+</script>
+
+</body>
+</html>
