@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>간이 수박 게임 (최적화 버전)</title>
+    <!-- 물리 엔진 Matter.js 로드 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #ui-container {
+            display: flex;
+            justify-content: space-between;
+            width: 700px;
+            margin-bottom: 10px;
+        }
+        #score, #next-container {
+            font-size: 24px;
+            font-weight: bold;
+            background-color: #fff;
+            padding: 5px 15px;
+            border: 3px solid #333;
+            border-radius: 20px;
+        }
+        #next-fruit {
+            margin-left: 5px;
+            display: inline-block;
+        }
+        #game-container {
+            position: relative;
+            width: 700px;
+            height: 650px;
+            background-color: #ffeaa7;
+            border: 4px solid #333;
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.19);
+            cursor: default;
+        }
+        canvas {
+            display: block;
+        }
+        .line {
+            position: absolute;
+            top: 100px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #ff7675;
+            border-style: dashed;
+            pointer-events: none;
+        }
+        #preview-fruit {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: Arial;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.85;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <div id="score">점수: 0</div>
+        <div id="next-container">NEXT: <span id="next-fruit">🍓</span></div>
+    </div>
+    
+    <div id="game-container">
+        <div class="line"></div>
+        <div id="preview-fruit">🍒</div>
+    </div>
+
+<script>
+const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
+
+// 과일 설정 (🍒🍓🍇🍋🍊🍎🍐🍑🍍🍈🍉)
+const FRUIT_TYPES = [
+    { emoji: '🍒', radius: 15, score: 1 },
+    { emoji: '🍓', radius: 22, score: 2 },
+    { emoji: '🍇', radius: 30, score: 4 },
+    { emoji: '🍋', radius: 38, score: 8 },
+    { emoji: '🍊', radius: 46, score: 16 },
+    { emoji: '🍎', radius: 56, score: 32 },
+    { emoji: '🍐', radius: 68, score: 64 },
+    { emoji: '🍑', radius: 82, score: 128 },
+    { emoji: '🍍', radius: 96, score: 256 },
+    { emoji: '🍈', radius: 110, score: 512 },
+    { emoji: '🍉', radius: 125, score: 1024 }
+];
+
+const MAX_SPAWNABLE_INDEX = 5; 
+
+const container = document.getElementById('game-container');
+const previewFruit = document.getElementById('preview-fruit');
+const nextFruitDisplay = document.getElementById('next-fruit');
+const width = 700;
+const height = 650;
+
+// [최적화] 물리 반복 연산 횟수를 최소화하여 cpu 연산량 급감
+const engine = Engine.create({ 
+    constraintIterations: 1,
+    positionIterations: 4,
+    velocityIterations: 4
+});
+
+const render = Render.create({
+    element: container,
+    engine: engine,
+    options: {
+        width: width,
+        height: height,
+        background: '#ffeaa7',
+        wireframes: false
+    }
+});
+
+const wallOptions = { isStatic: true, render: { fillStyle: '#2d3436' } };
+const ground = Bodies.rectangle(width / 2, height + 30, width, 80, wallOptions);
+const leftWall = Bodies.rectangle(-30, height / 2, 80, height, wallOptions);
+const rightWall = Bodies.rectangle(width + 30, height / 2, 80, height, wallOptions);
+
+Composite.add(engine.world, [ground, leftWall, rightWall]);
+
+Render.run(render);
+const runner = Runner.create();
+Runner.run(runner, engine);
+
+let score = 0;
+let currentFruitIndex = Math.floor(Math.random() * MAX_SPAWNABLE_INDEX);
+let nextFruitIndex = Math.floor(Math.random() * MAX_SPAWNABLE_INDEX);
+let isClickable = true;
+let lastMouseX = width / 2;
+
+updatePreviewUI();
+
+function updateScore(amount) {
+    score += amount;
+    document.getElementById('score').innerText = `점수: ${score}`;
+}
+
+function createFruit(x, y, index) {
+    const config = FRUIT_TYPES[index];
+    return Bodies.circle(x, y, config.radius, {
+        index: index,
+        restitution: 0.15, // 미세 튕김 감소
+        friction: 0.08,    // 굴러간 뒤 자리를 빠르게 잡도록 마찰력 최적화
+        frictionAir: 0.02, // 공기 저항을 약간 주어 불필요한 무한 진동 방지
+        render: { visible: false }
+    });
+}
+
+function updatePreviewUI() {
+    const currentConfig = FRUIT_TYPES[currentFruitIndex];
+    const nextConfig = FRUIT_TYPES[nextFruitIndex];
+
+    previewFruit.innerText = currentConfig.emoji;
+    previewFruit.style.fontSize = `${currentConfig.radius * 1.8}px`;
+    nextFruitDisplay.innerText = nextConfig.emoji;
+
+    let x = lastMouseX;
+    if (x < currentConfig.radius) x = currentConfig.radius;
+    if (x > width - currentConfig.radius) x = width - currentConfig.radius;
+    previewFruit.style.left = `${x}px`;
+}
+
+container.addEventListener('mousemove', (e) => {
+    const rect = container.getBoundingClientRect();
+    lastMouseX = e.clientX - rect.left;
+    updatePreviewUI();
+});
+
+Events.on(render, 'afterRender', function() {
+    const context = render.context;
+    const bodies = Composite.allBodies(engine.world);
+
+    // 루프 내에서 가비지 컬렉터가 열일하지 않도록 드로잉 최적화
+    for (let i = 0; i < bodies.length; i++) {
+        const body = bodies[i];
+        if (body.index !== undefined) {
+            const config = FRUIT_TYPES[body.index];
+            context.save();
+            context.translate(body.position.x, body.position.y);
+            context.rotate(body.angle);
+            context.font = `${config.radius * 1.8}px Arial`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(config.emoji, 0, 0);
+            context.restore();
+        }
+    }
+});
+
+container.addEventListener('click', (e) => {
+    if (!isClickable) return;
+
+    const rect = container.getBoundingClientRect();
+    let clickX = e.clientX - rect.left;
+    
+    const radius = FRUIT_TYPES[currentFruitIndex].radius;
+    if (clickX < radius) clickX = radius;
+    if (clickX > width - radius) clickX = width - radius;
+
+    const newFruit = createFruit(clickX, 40, currentFruitIndex);
+    Composite.add(engine.world, newFruit);
+
+    isClickable = false;
+    previewFruit.style.display = 'none';
+
+    currentFruitIndex = nextFruitIndex;
+    nextFruitIndex = Math.floor(Math.random() * MAX_SPAWNABLE_INDEX);
+    
+    setTimeout(() => {
+        isClickable = true;
+        previewFruit.style.display = 'block';
+        updatePreviewUI();
+    }, 350);
+});
+
+Events.on(engine, 'collisionStart', (event) => {
+    const pairs = event.pairs;
+
+    for (let i = 0; i < pairs.length; i++) {
+        const pair = pairs[i];
+        const bodyA = pair.bodyA;
+        const bodyB = pair.bodyB;
+
+        if (bodyA.index !== undefined && bodyB.index !== undefined && bodyA.index === bodyB.index) {
+            if (bodyA.isDead || bodyB.isDead) continue;
+            
+            bodyA.isDead = true;
+            bodyB.isDead = true;
+
+            const currentIndex = bodyA.index;
+            const midX = (bodyA.position.x + bodyB.position.x) / 2;
+            const midY = (bodyA.position.y + bodyB.position.y) / 2;
+
+            Composite.remove(engine.world, [bodyA, bodyB]);
+            updateScore(FRUIT_TYPES[currentIndex].score);
+
+            if (currentIndex < FRUIT_TYPES.length - 1) {
+                const nextIndex = currentIndex + 1;
+                const upgradedFruit = createFruit(midX, midY, nextIndex);
+                
+                Body.setVelocity(upgradedFruit, { x: (Math.random() - 0.5) * 1.5, y: -0.5 });
+                Composite.add(engine.world, upgradedFruit);
+            } else {
+                updateScore(2000);
+            }
+        }
+    }
+});
+
+let gameOverTimeout = null;
+
+setInterval(() => {
+    const bodies = Composite.allBodies(engine.world);
+    let isOverflowing = false;
+
+    for (let i = 0; i < bodies.length; i++) {
+        const body = bodies[i];
+        if (body.index !== undefined && !body.isStatic) {
+            if (body.position.y < 100 && Math.abs(body.velocity.y) < 0.15) {
+                isOverflowing = true;
+                break;
+            }
+        }
+    }
+
+    if (isOverflowing) {
+        if (!gameOverTimeout) {
+            gameOverTimeout = setTimeout(() => {
+                alert(`게임 오버! 최종 점수: ${score}`);
+                location.reload();
+            }, 1500);
+        }
+    } else {
+        if (gameOverTimeout) {
+            clearTimeout(gameOverTimeout);
+            gameOverTimeout = null;
+        }
+    }
+}, 400);
+
+</script>
+</body>
+</html>
