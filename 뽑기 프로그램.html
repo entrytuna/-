@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>올인원 멀티 뽑기 프로그램</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+        h2 { margin-top: 0; color: #333; }
+        textarea { width: 90%; height: 80px; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; resize: none; font-size: 14px; }
+        .mode-select { margin: 15px 0; display: flex; justify-content: space-around; background: #eee; padding: 8px; border-radius: 8px; }
+        .mode-select label { cursor: pointer; font-weight: bold; font-size: 14px; padding: 5px 10px; }
+        .mode-select input { margin-right: 5px; }
+        .game-screen { height: 180px; border: 2px dashed #009688; border-radius: 8px; margin: 20px 0; display: flex; justify-content: center; align-items: center; background: #E0F2F1; overflow: hidden; position: relative; }
+        .btn-start { background: #2196F3; color: white; border: none; padding: 12px; width: 100%; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+        .btn-start:hover { background: #1976D2; }
+        #statusText { font-size: 18px; font-weight: bold; color: #004D40; }
+        /* 애니메이션 효과들 */
+        .fish { font-size: 40px; position: absolute; bottom: -50px; animation: fishUp 1.5s forwards ease-out; }
+        @keyframes fishUp { 0% { bottom: -50px; } 70% { bottom: 60px; transform: scale(1.2); } 100% { bottom: 50px; } }
+        .card-box { display: flex; gap: 15px; }
+        .card { width: 70px; height: 100px; background: #B2DFDB; border: 2px solid #00796B; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #004D40; cursor: pointer; }
+        .card.flipped { background: #FFF9C4; border-color: #FBC02D; font-size: 14px; }
+        .racer { position: absolute; left: 10px; font-size: 14px; padding: 4px 8px; color: white; border-radius: 4px; font-weight: bold; transition: left 0.05s linear; width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .line { position: absolute; right: 40px; top: 0; bottom: 0; width: 4px; background: red; border-left: 2px dashed white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎡 멀티 뽑기 프로그램 (최대 100개)</h2>
+    <p style="font-size:12px; color:gray; margin:0;">항목을 콤마(,)나 줄바꿈으로 구분해서 적어주세요. (최대 100개)</p>
+    <textarea id="itemsInput">당첨!, 꽝, 대박, 쪽박, 한번더, 보너스</textarea>
+    <div id="countLabel" style="font-size:12px; color:#666; text-align:right;">현재 항목: 6개</div>
+
+    <div class="mode-select">
+        <label><input type="radio" name="mode" value="roulette" checked>🎡돌림판</label>
+        <label><input type="radio" name="mode" value="fish">🎣낚시</label>
+        <label><input type="radio" name="mode" value="card">🃏카드</label>
+        <label><input type="radio" name="mode" value="race">🏎️레이싱</label>
+    </div>
+
+    <div class="game-screen" id="gameScreen">
+        <div id="statusText">원하는 모드를 고르고 시작을 누르세요!</div>
+    </div>
+
+    <button class="btn-start" onclick="startGacha()">🔥 뽑기 시작! 🔥</button>
+</div>
+
+<script>
+    const itemsInput = document.getElementById('itemsInput');
+    const countLabel = document.getElementById('countLabel');
+    const gameScreen = document.getElementById('gameScreen');
+
+    // 항목 개수 실시간 체크
+    itemsInput.addEventListener('input', () => {
+        let items = getItems();
+        if(items.length > 100) {
+            alert("항목은 최대 100개까지만 넣을 수 있습니다!");
+            items = items.slice(0, 100);
+            itemsInput.value = items.join(', ');
+        }
+        countLabel.innerText = `현재 항목: ${items.length}개 / 100개`;
+    });
+
+    function getItems() {
+        return itemsInput.value.split(/,|\n/).map(i => i.trim()).filter(i => i !== "");
+    }
+
+    function startGacha() {
+        const items = getItems();
+        if (items.length === 0) {
+            alert("항목을 최소 1개 이상 입력해주세요!");
+            return;
+        }
+
+        const mode = document.querySelector('input[name="mode"]:checked').value;
+        gameScreen.innerHTML = ""; // 화면 초기화
+
+        if (mode === "roulette") {
+            playRoulette(items);
+        } else if (mode === "fish") {
+            playFishing(items);
+        } else if (mode === "card") {
+            playCards(items);
+        } else if (mode === "race") {
+            playRacing(items);
+        }
+    }
+
+    // 1. 돌림판 효과 (글자 롤링)
+    function playRoulette(items) {
+        let count = 0;
+        let speed = 50;
+        
+        function roll() {
+            let randItem = items[Math.floor(Math.random() * items.length)];
+            gameScreen.innerHTML = `<div id="statusText" style="font-size:24px; color:#E91E63;">🎡 롤링 중: ${randItem}</div>`;
+            count++;
+            if (count < 25) {
+                setTimeout(roll, speed + count * 5); // 점점 느려지게
+            } else {
+                let finalResult = items[Math.floor(Math.random() * items.length)];
+                gameScreen.innerHTML = `<div id="statusText" style="font-size:26px; color:#2196F3;">🎉 당첨: [${finalResult}] 🎉</div>`;
+                setTimeout(() => alert(`🎡 돌림판 결과\n\n당첨 항목: [${finalResult}]`), 100);
+            }
+        }
+        roll();
+    }
+
+    // 2. 낚시 애니메이션
+    function playFishing(items) {
+        gameScreen.innerHTML = `<div id="statusText">🎣 찌 던지는 중... 잠시만 기다리세요...</div>`;
+        const result = items[Math.floor(Math.random() * items.length)];
+        
+        setTimeout(() => {
+            gameScreen.innerHTML = `<div id="statusText">❗ 물고기가 물었습니다! 잡아당기는 중...</div>`;
+            setTimeout(() => {
+                gameScreen.innerHTML = `<div class="fish">🐟<span style="font-size:16px; font-weight:bold; color:black; background:white; padding:2px 5px; border-radius:4px; border:1px solid #ccc;">${result}</span></div>`;
+                setTimeout(() => alert(`🎣 낚시 결과\n\n물고기 뱃속에서 [${result}]을(를) 낚았습니다!`), 200);
+            }, 1000);
+        }, 1000);
+    }
+
+    // 3. 카드 뒤집기 상호작용
+    function playCards(items) {
+        gameScreen.innerHTML = `<div class="card-box">
+            <div class="card" onclick="flipCard(this, '${escapeHtml(items[Math.floor(Math.random()*items.length)])}')">?</div>
+            <div class="card" onclick="flipCard(this, '${escapeHtml(items[Math.floor(Math.random()*items.length)])}')">?</div>
+            <div class="card" onclick="flipCard(this, '${escapeHtml(items[Math.floor(Math.random()*items.length)])}')">?</div>
+        </div>`;
+    }
+
+    function flipCard(cardObj, result) {
+        if(cardObj.classList.contains('flipped')) return;
+        // 모든 카드 클릭 방지
+        document.querySelectorAll('.card').forEach(c => c.removeAttribute('onclick'));
+        cardObj.innerText = result;
+        cardObj.classList.add('flipped');
+        setTimeout(() => alert(`🃏 카드 결과\n\n당첨 항목: [${result}]`), 200);
+    }
+
+    // 4. 레이싱 주자 경쟁 애니메이션
+    function playRacing(items) {
+        let racers = items.sort(() => 0.5 - Math.random()).slice(0, 4); // 최대 4개 주자 선출
+        if (racers.length < 2) racers.push("보너스A", "보너스B");
+
+        gameScreen.innerHTML = `<div class="line"></div>`;
+        const colors = ["#E91E63", "#9C27B0", "#3F51B5", "#009688"];
+        
+        let racerData = racers.map((name, idx) => {
+            let el = document.createElement('div');
+            el.className = 'racer';
+            el.style.top = `${20 + idx * 38}px`;
+            el.style.backgroundColor = colors[idx % colors.length];
+            el.innerText = `🏎️ ${name}`;
+            gameScreen.appendChild(el);
+            return { element: el, name: name, progress: 10 };
+        });
+
+        let interval = setInterval(() => {
+            let finished = false;
+            racerData.forEach(r => {
+                r.progress += Math.floor(Math.random() * 12) + 2;
+                r.element.style.left = `${r.progress}px`;
+                if (r.progress >= 380) { // 결승선 도달 조건
+                    finished = true;
+                }
+            });
+
+            if (finished) {
+                clearInterval(interval);
+                racerData.sort((a, b) => b.progress - a.progress);
+                let winner = racerData[0].name;
+                setTimeout(() => alert(`🏎️ 레이싱 결과\n\n🏆 1등 완주: [${winner}] 🏆`), 200);
+            }
+        }, 50);
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+
+</body>
+</html>
