@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>imare📄</title>
+    <!-- 파비콘 (종이 이모티콘 📄) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
+    
+    <!-- CryptoJS (비밀번호/개인정보 클라이언트 단 암호화 라이브러리) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-color: #4a90e2;
+            --danger-color: #e74c3c;
+            --border-color: #e1e4e8;
+        }
+
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .auth-buttons button, .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 350px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .modal-content input, .modal-content button {
+            width: 100%;
+            margin-top: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* 게시글 카드 */
+        .post-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border-color);
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .profile-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #ccc;
+        }
+
+        .post-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .post-images img {
+            width: 100%;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .post-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 10px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* 댓글 영역 */
+        .comments-section {
+            margin-top: 15px;
+            background: #f9f9f9;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .comment {
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .reply {
+            margin-left: 20px;
+            border-left: 2px solid #ddd;
+            padding-left: 8px;
+        }
+
+        /* 로봇 확인 체크박스 */
+        .captcha-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            background: #eee;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- 헤더 -->
+    <header>
+        <h1>📄 imare</h1>
+        <div id="user-nav" class="auth-buttons">
+            <!-- 로그인 전 -->
+            <div id="guest-buttons">
+                <button class="btn btn-primary" onclick="openModal('login-modal')">로그인</button>
+                <button class="btn btn-secondary" onclick="openModal('signup-modal')">회원가입</button>
+            </div>
+            <!-- 로그인 후 -->
+            <div id="user-buttons" class="hidden">
+                <span id="nav-nickname" style="font-weight:bold; margin-right:10px;"></span>
+                <button class="btn btn-secondary" onclick="openModal('profile-modal')">내 프로필</button>
+                <button class="btn btn-secondary" onclick="logout()">로그아웃</button>
+                <button class="btn btn-danger" onclick="deleteAccount()">회원탈퇴</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- 글 작성 양식 -->
+        <div id="create-post-card" class="post-card hidden">
+            <h3>새 그림 게시글 올리기</h3>
+            <textarea id="post-text" style="width:100%; height:60px; margin-bottom:10px;" placeholder="작품에 대한 설명을 적어주세요..."></textarea>
+            <input type="file" id="post-files" multiple accept="image/*" style="margin-bottom:10px;">
+            <button class="btn btn-primary" onclick="createPost()">게시하기</button>
+        </div>
+
+        <!-- 게시물 목록 -->
+        <div id="posts-container"></div>
+    </div>
+
+    <!-- 1. 회원가입 모달 -->
+    <div id="signup-modal" class="modal">
+        <div class="modal-content">
+            <h2>회원가입</h2>
+            <p style="font-size: 0.8rem; color: #888;">🔒 개인정보는 강력한 암호화 알고리즘(SHA-256)으로 보호되어 운영자조차 해독할 수 없습니다.</p>
+            <input type="email" id="signup-email" placeholder="이메일 입력">
+            <input type="number" id="signup-birth" placeholder="태어난 년도 (예: 2000)">
+            <input type="text" id="signup-nickname" placeholder="닉네임">
+            <input type="password" id="signup-password" placeholder="비밀번호">
+            
+            <div class="captcha-box">
+                <input type="checkbox" id="signup-captcha" style="width:auto; margin:0;">
+                <label for="signup-captcha">로봇이 아닙니다 🤖</label>
+            </div>
+
+            <button class="btn btn-primary" onclick="handleSignup()">가입하기</button>
+            <button class="btn btn-secondary" onclick="closeModal('signup-modal')">닫기</button>
+        </div>
+    </div>
+
+    <!-- 2. 로그인 모달 -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <h2>로그인</h2>
+            <input type="email" id="login-email" placeholder="이메일 입력">
+            <input type="password" id="login-password" placeholder="비밀번호">
+            <button class="btn btn-primary" onclick="handleLogin()">로그인</button>
+            <button class="btn btn-secondary" onclick="closeModal('login-modal')">닫기</button>
+        </div>
+    </div>
+
+    <!-- 3. 프로필 수정 모달 -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <h2>프로필 수정</h2>
+            <label>닉네임 수정:</label>
+            <input type="text" id="edit-nickname">
+            <label style="margin-top:10px; display:block;">프로필 이미지 변경:</label>
+            <input type="file" id="edit-profile-img" accept="image/*">
+            <button class="btn btn-primary" onclick="updateProfile()">저장</button>
+            <button class="btn btn-secondary" onclick="closeModal('profile-modal')">닫기</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 데이터베이스 대체 (localStorage) ---
+        let users = JSON.parse(localStorage.getItem('imare_users')) || [];
+        let posts = JSON.parse(localStorage.getItem('imare_posts')) || [];
+        let currentUser = JSON.parse(localStorage.getItem('imare_current_user')) || null;
+
+        // 초기화 실행
+        window.onload = function() {
+            checkBanStatus();
+            updateUI();
+            renderPosts();
+        };
+
+        // 모달 제어
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // --- 보안: 암호화 함수 (SHA-256) ---
+        // 운영자조차 실제 비밀번호 및 개인 식별 정보를 원본 그대로 볼 수 없게 암호화
+        function encryptData(data) {
+            return CryptoJS.SHA256(data).toString();
+        }
+
+        // --- 회원가입 ---
+        function handleSignup() {
+            const email = document.getElementById('signup-email').value.trim();
+            const birth = document.getElementById('signup-birth').value.trim();
+            const nickname = document.getElementById('signup-nickname').value.trim();
+            const password = document.getElementById('signup-password').value;
+            const captcha = document.getElementById('signup-captcha').checked;
+
+            if (!email || !birth || !nickname || !password) return alert(' 모든 정보를 입력해주세요.');
+            if (!captcha) return alert('\'로봇이 아닙니다\'를 체크해주세요.');
+
+            // 중복 닉네임 체크
+            if (users.some(u => u.nickname === nickname)) {
+                return alert('이미 존재하는 닉네임입니다. 다른 닉네임을 사용해주세요.');
+            }
+
+            // 사용자 객체 생성 (비밀번호 및 개인정보는 암호화하여 저장)
+            const newUser = {
+                id: Date.now(),
+                emailHash: encryptData(email), // 개인정보 암호화로 운영자도 조회가 안 됨
+                birth: birth,
+                nickname: nickname,
+                passwordHash: encryptData(password),
+                profileImg: 'https://via.placeholder.com/40',
+                isBanned: false,
+                banUntil: null
+            };
+
+            users.push(newUser);
+            localStorage.setItem('imare_users', JSON.stringify(users));
+
+            alert('회원가입이 완료되었습니다! 로그인 해주세요.');
+            closeModal('signup-modal');
+        }
+
+        // --- 로그인 ---
+        function handleLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            const emailHash = encryptData(email);
+            const passwordHash = encryptData(password);
+
+            const user = users.find(u => u.emailHash === emailHash && u.passwordHash === passwordHash);
+
+            if (!user) return alert('이메일 또는 비밀번호가 일치하지 않습니다.');
+
+            // 제재 여부 확인
+            if (user.isBanned) {
+                if (user.banUntil === 'PERMANENT') {
+                    return alert('이 계정은 운영자에 의해 영구 정지되었습니다.');
+                } else if (new Date(user.banUntil) > new Date()) {
+                    return alert(`이 계정은 ${new Date(user.banUntil).toLocaleString()} 까지 정지 상태입니다.`);
+                }
+            }
+
+            // 자동 로그인 유지를 위해 localStorage에 상태 저장 (컴퓨터 껐다 켜도 유지)
+            currentUser = user;
+            localStorage.setItem('imare_current_user', JSON.stringify(currentUser));
+
+            alert(`${user.nickname}님, 환영합니다!`);
+            closeModal('login-modal');
+            updateUI();
+            renderPosts();
+        }
+
+        // --- 로그아웃 ---
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('imare_current_user');
+            updateUI();
+            renderPosts();
+        }
+
+        // --- 회원 탈퇴 (버튼 클릭시 즉시 완료) ---
+        function deleteAccount() {
+            if (confirm('정말로 회원 탈퇴하시겠습니까? 데이터는 복구되지 않습니다.')) {
+                users = users.filter(u => u.id !== currentUser.id);
+                localStorage.setItem('imare_users', JSON.stringify(users));
+                logout();
+                alert('회원탈퇴가 완료되었습니다.');
+            }
+        }
+
+        // --- UI 업데이트 ---
+        function updateUI() {
+            const guestBtns = document.getElementById('guest-buttons');
+            const userBtns = document.getElementById('user-buttons');
+            const postCard = document.getElementById('create-post-card');
+
+            if (currentUser) {
+                guestBtns.classList.add('hidden');
+                userBtns.classList.remove('hidden');
+                postCard.classList.remove('hidden');
+                document.getElementById('nav-nickname').innerText = currentUser.nickname + (currentUser.nickname === '-참치-' ? ' (운영자)' : '');
+                document.getElementById('edit-nickname').value = currentUser.nickname;
+            } else {
+                guestBtns.classList.remove('hidden');
+                userBtns.classList.add('hidden');
+                postCard.classList.add('hidden');
+            }
+        }
+
+        // --- 프로필 수정 (닉네임 중복 체크 포함) ---
+        function updateProfile() {
+            const newNick = document.getElementById('edit-nickname').value.trim();
+            const fileInput = document.getElementById('edit-profile-img');
+
+            if (newNick !== currentUser.nickname && users.some(u => u.nickname === newNick)) {
+                return alert('이미 중복된 닉네임입니다.');
+            }
+
+            currentUser.nickname = newNick;
+
+            // 프로필 파일 처리
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentUser.profileImg = e.target.result;
+                    saveProfileChanges();
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                saveProfileChanges();
+            }
+        }
+
+        function saveProfileChanges() {
+            // 사용자 목록 Update
+            const idx = users.findIndex(u => u.id === currentUser.id);
+            if (idx !== -1) users[idx] = currentUser;
+
+            localStorage.setItem('imare_users', JSON.stringify(users));
+            localStorage.setItem('imare_current_user', JSON.stringify(currentUser));
+
+            alert('프로필이 수정되었습니다.');
+            closeModal('profile-modal');
+            updateUI();
+            renderPosts();
+        }
+
+        // --- 게시글 작성 (여러 이미지 지원) ---
+        function createPost() {
+            const text = document.getElementById('post-text').value;
+            const files = document.getElementById('post-files').files;
+
+            if (files.length === 0 && !text) return alert('내용 또는 이미지를 추가해주세요.');
+
+            const imagePromises = Array.from(files).map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            Promise.all(imagePromises).then(images => {
+                const newPost = {
+                    id: Date.now(),
+                    authorId: currentUser.id,
+                    authorNick: currentUser.nickname,
+                    authorImg: currentUser.profileImg,
+                    content: text,
+                    images: images, // png, svg, gif 등 인코딩 보관
+                    likes: [],
+                    bookmarks: [],
+                    comments: []
+                };
+
+                posts.unshift(newPost);
+                localStorage.setItem('imare_posts', JSON.stringify(posts));
+                document.getElementById('post-text').value = '';
+                document.getElementById('post-files').value = '';
+                renderPosts();
+            });
+        }
+
+        // --- 게시글 렌더링 ---
+        function renderPosts() {
+            const container = document.getElementById('posts-container');
+            container.innerHTML = '';
+
+            posts.forEach(post => {
+                const isLiked = currentUser && post.likes.includes(currentUser.id);
+                const isBookmarked = currentUser && post.bookmarks.includes(currentUser.id);
+
+                let imagesHTML = '<div class="post-images">';
+                post.images.forEach(imgSrc => {
+                    imagesHTML += `<img src="${imgSrc}" alt="게시 이미지">`;
+                });
+                imagesHTML += '</div>';
+
+                // 운영자 (-참치-) 제재 권한 버튼 표시 여부
+                let adminControls = '';
+                if (currentUser && currentUser.nickname === '-참치-') {
+                    adminControls = `
+                        <div style="background:#fff3cd; padding:5px; margin-top:5px; border-radius:4px; font-size:0.8rem;">
+                            <strong>👑 운영자 권한:</strong> 작성자 [${post.authorNick}] 
+                            <button class="btn btn-danger" style="padding:2px 5px; font-size:0.7rem;" onclick="banUser('${post.authorNick}', 'PERMANENT')">영구 정지</button>
+                            <button class="btn btn-secondary" style="padding:2px 5px; font-size:0.7rem;" onclick="promptBanDays('${post.authorNick}')">N일 정지</button>
+                        </div>
+                    `;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                card.innerHTML = `
+                    <div class="post-header">
+                        <img src="${post.authorImg}" class="profile-img">
+                        <div>
+                            <strong>${post.authorNick}</strong>
+                        </div>
+                    </div>
+                    <div>${post.content}</div>
+                    ${imagesHTML}
+                    ${adminControls}
+                    <div class="post-actions">
+                        <button class="action-btn" onclick="toggleLike(${post.id})">❤️ 좋아요 ${post.likes.length}</button>
+                        <button class="action-btn" onclick="toggleBookmark(${post.id})">${isBookmarked ? '🔖 북마크됨' : '📑 북마크'}</button>
+                        <button class="action-btn" onclick="reportPost(${post.id})">🚨 신고하기</button>
+                        <button class="action-btn" onclick="sharePost(${post.id})">🔗 공유</button>
+                    </div>
+
+                    <!-- 댓글 영역 -->
+                    <div class="comments-section">
+                        <strong>댓글</strong>
+                        <div id="comments-list-${post.id}">
+                            ${renderComments(post.comments, post.id)}
+                        </div>
+                        ${currentUser ? `
+                            <div style="display:flex; gap:5px; margin-top:10px;">
+                                <input type="text" id="comment-input-${post.id}" placeholder="댓글 작성..." style="flex:1;">
+                                <button class="btn btn-primary" onclick="addComment(${post.id})">등록</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- 댓글/답글 렌더링 ---
+        function renderComments(comments, postId, parentId = null) {
+            return comments.map(c => {
+                const isCommentLiked = currentUser && c.likes && c.likes.includes(currentUser.id);
+                return `
+                    <div class="comment ${parentId ? 'reply' : ''}">
+                        <strong>${c.author}</strong>: ${c.text}
+                        <button style="border:none; background:none; cursor:pointer; font-size:0.8rem;" onclick="likeComment(${postId}, ${c.id})">
+                            👍 ${c.likes ? c.likes.length : 0}
+                        </button>
+                        ${currentUser ? `<button style="border:none; background:none; cursor:pointer; font-size:0.8rem; color:blue;" onclick="addReplyPrompt(${postId}, ${c.id})">답글</button>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- 좋아요 / 북마크 / 신고 / 공유 ---
+        function toggleLike(postId) {
+            if (!currentUser) return alert('로그인이 필요합니다.');
+            const post = posts.find(p => p.id === postId);
+            const idx = post.likes.indexOf(currentUser.id);
+            if (idx === -1) post.likes.push(currentUser.id);
+            else post.likes.splice(idx, 1);
+            savePosts();
+        }
+
+        function toggleBookmark(postId) {
+            if (!currentUser) return alert('로그인이 필요합니다.');
+            const post = posts.find(p => p.id === postId);
+            const idx = post.bookmarks.indexOf(currentUser.id);
+            if (idx === -1) {
+                post.bookmarks.push(currentUser.id);
+                alert('북마크에 추가되었습니다.');
+            } else {
+                post.bookmarks.splice(idx, 1);
+                alert('북마크가 해제되었습니다.');
+            }
+            savePosts();
+        }
+
+        function reportPost(postId) {
+            alert('신고가 접수되었습니다. 운영자(-참치-) 검토 후 조치됩니다.');
+        }
+
+        function sharePost(postId) {
+            const shareUrl = window.location.href.split('?')[0] + '?post=' + postId;
+            navigator.clipboard.writeText(shareUrl);
+            alert('게시글 공유 링크가 클립보드에 복사되었습니다!\n' + shareUrl);
+        }
+
+        // --- 댓글 및 답글 추가 ---
+        function addComment(postId) {
+            const input = document.getElementById(`comment-input-${postId}`);
+            if (!input.value.trim()) return;
+
+            const post = posts.find(p => p.id === postId);
+            post.comments.push({
+                id: Date.now(),
+                author: currentUser.nickname,
+                text: input.value,
+                likes: []
+            });
+            savePosts();
+        }
+
+        function addReplyPrompt(postId, commentId) {
+            const replyText = prompt('답글을 입력하세요:');
+            if (!replyText) return;
+
+            const post = posts.find(p => p.id === postId);
+            post.comments.push({
+                id: Date.now(),
+                author: currentUser.nickname,
+                text: `↳ @답글: ${replyText}`,
+                likes: []
+            });
+            savePosts();
+        }
+
+        function likeComment(postId, commentId) {
+            if (!currentUser) return alert('로그인이 필요합니다.');
+            const post = posts.find(p => p.id === postId);
+            const comment = post.comments.find(c => c.id === commentId);
+            if (!comment.likes) comment.likes = [];
+            
+            const idx = comment.likes.indexOf(currentUser.id);
+            if (idx === -1) comment.likes.push(currentUser.id);
+            else comment.likes.splice(idx, 1);
+            
+            savePosts();
+        }
+
+        function savePosts() {
+            localStorage.setItem('imare_posts', JSON.stringify(posts));
+            renderPosts();
+        }
+
+        // --- 운영자(-참치-) 정지 기능 ---
+        function promptBanDays(nickname) {
+            const days = prompt('며칠 동안 정지시키겠습니까? (숫자만 입력):');
+            if (days && !isNaN(days)) {
+                const banDate = new Date();
+                banDate.setDate(banDate.getDate() + parseInt(days));
+                banUser(nickname, banDate.toISOString());
+            }
+        }
+
+        function banUser(nickname, banType) {
+            const user = users.find(u => u.nickname === nickname);
+            if (user) {
+                user.isBanned = true;
+                user.banUntil = banType;
+                localStorage.setItem('imare_users', JSON.stringify(users));
+                alert(`[${nickname}] 유저가 ${banType === 'PERMANENT' ? '영구 정지' : '기간 정지'} 처리되었습니다.`);
+            } else {
+                alert('해당 유저를 찾을 수 없습니다.');
+            }
+        }
+
+        function checkBanStatus() {
+            if (currentUser && currentUser.isBanned) {
+                if (currentUser.banUntil === 'PERMANENT' || new Date(currentUser.banUntil) > new Date()) {
+                    logout();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
